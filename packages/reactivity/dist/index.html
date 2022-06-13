@@ -13,4 +13,19 @@
 </body>
 <script src="./reactivity.global.js"></script>
 
+<script>
+  const { reactive } = VueReactivity
+  const person = {
+    name: 'Lucy',
+    gender: 'Female',
+    age: 16
+  }
+  const state1 = reactive(person)
+  const state2 = reactive(person)
+  console.log(state1)
+  console.log(state2)
+
+  console.log(state1 === state2)
+</script>
+
 </html>

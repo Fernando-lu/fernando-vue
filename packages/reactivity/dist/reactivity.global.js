@@ -20,6 +20,7 @@ var VueReactivity = (() => {
   // packages/reactivity/src/index.ts
   var src_exports = {};
   __export(src_exports, {
+    effect: () => effect,
     reactive: () => reactive
   });
 
@@ -28,31 +29,85 @@ var VueReactivity = (() => {
     return typeof o === "object" && o !== null;
   }
 
+  // packages/reactivity/src/effect.ts
+  var activeEffect = void 0;
+  var ReactiveEffect = class {
+    constructor(fn) {
+      this.fn = fn;
+      this.active = true;
+      this.parent = null;
+      this.deps = [];
+    }
+    run() {
+      if (!this.active) {
+        return this.fn();
+      }
+      try {
+        this.parent = activeEffect;
+        activeEffect = this;
+        this.active = true;
+        return this.fn();
+      } finally {
+        activeEffect = this.parent;
+        this.parent = null;
+      }
+    }
+    stop() {
+    }
+  };
+  function effect(fn) {
+    const _effect = new ReactiveEffect(fn);
+    _effect.run();
+  }
+  var globalDepsMap = /* @__PURE__ */ new WeakMap();
+  function track(target, type, key) {
+    debugger;
+    if (!activeEffect)
+      return;
+    let depsMap = globalDepsMap.get(target);
+    if (!depsMap) {
+      globalDepsMap.set(target, depsMap = /* @__PURE__ */ new Map());
+    }
+    let dep = depsMap.get(key);
+    if (!dep) {
+      depsMap.set(key, dep = /* @__PURE__ */ new Set());
+    }
+    const shouldTrack = dep.has(activeEffect);
+    if (!shouldTrack) {
+      dep.add(shouldTrack);
+      debugger;
+      activeEffect.deps.push(dep);
+    }
+  }
+
+  // packages/reactivity/src/basicHandler.ts
+  var mutableHandlers = {
+    get(target, key, receiver) {
+      if (key === "__v_isReactive" /* IS_REACTIVE */) {
+        return true;
+      }
+      track(target, "get", key);
+      return Reflect.get(target, key, receiver);
+    },
+    set(target, key, value, receiver) {
+      return Reflect.set(target, key, value, receiver);
+    }
+  };
+
   // packages/reactivity/src/reactive.ts
   var reactiveMap = /* @__PURE__ */ new WeakMap();
   function reactive(target) {
     if (!isObject(target))
       return;
     if (target["__v_isReactive" /* IS_REACTIVE */]) {
-      return true;
+      return target;
     }
     const reactiveValue = reactiveMap.get(target);
     if (reactiveValue) {
       return reactiveValue;
     }
-    const proxy = new Proxy(target, {
-      get(target2, key, value) {
-        if (key === "__v_isReactive" /* IS_REACTIVE */) {
-          return true;
-        }
-        return Reflect.get(target2, key, value);
-      },
-      set(target2, key, value, receiver) {
-        return Reflect.set(target2, key, value, receiver);
-      }
-    });
+    const proxy = new Proxy(target, mutableHandlers);
     reactiveMap.set(target, proxy);
-    console.log("reactiveMap", reactiveMap);
     return proxy;
   }
   return __toCommonJS(src_exports);

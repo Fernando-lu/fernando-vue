@@ -21,20 +21,24 @@
   const person = {
     name: 'Lucy',
     gender: 'Female',
-    age: 16
+    age: 16,
   }
   const state = reactive(person)
-  effect(() => {
-    console.log('render1')
-    app.innerHTML = state.name
+  const runner = effect(() => {
+    console.log('render')
+    app.innerHTML = state.age
   })
 
+  runner.effect.stop()
+
   setTimeout(() => {
+    state.age = 1000
     setTimeout(() => {
-      console.log('修改名字，原则上不更新')
-      state.name = 'Lucy'
+      runner()
     }, 1000)
   }, 1000)
+
+
 </script>
 
 </html>

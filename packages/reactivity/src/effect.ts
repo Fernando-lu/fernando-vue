@@ -1,6 +1,10 @@
 // 暴露在全局的副作用，表示当前正在执行的 effect
 export let activeEffect = undefined
 
+// 全局的依赖
+// WeakMap { target: Map {key: Set(...effects) } }
+export const globalTargetDepsMap = new WeakMap()
+
 class ReactiveEffect {
   // 默认设置当前effect是激活状态
   public active = true
@@ -26,17 +30,23 @@ class ReactiveEffect {
     }
   }
 
-  stop() {}
+  stop() {
+    if (this.active) {
+      this.active = false
+      cleanupEffect(this)
+    }
+  }
 }
 
 export function effect(fn) {
   const _effect = new ReactiveEffect(fn)
   _effect.run()
+  // 允许执行 runner() 的时候执行 _effect.run
+  const runner = _effect.run.bind(_effect)
+  // 允许在外执行 runner.effect.stop()
+  runner.effect = _effect
+  return runner
 }
-
-// 全局的依赖
-// WeakMap { target: Map {key: Set(...effects) } }
-export const globalTargetDepsMap = new WeakMap()
 
 // 收集依赖
 export function track(target, type, key) {
@@ -74,9 +84,8 @@ export function trigger(target, type, key, value, oldValue) {
   let effects = depsMap.get(key)
 
   if (!effects) return
-
+  // 避免由于引用同一个对象导致监听变化陷入死循环，因此拷贝一个出来遍历
   effects = [...effects]
-
   effects.forEach((effect) => {
     if (effect !== activeEffect) effect.run()
   })

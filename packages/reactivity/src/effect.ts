@@ -13,7 +13,7 @@ class ReactiveEffect {
   public parent = null
   // 用来记录effetc的依赖
   public deps = []
-  constructor(public fn) {}
+  constructor(public fn, public scheduler) {}
 
   run() {
     if (!this.active) {
@@ -38,8 +38,12 @@ class ReactiveEffect {
   }
 }
 
-export function effect(fn) {
-  const _effect = new ReactiveEffect(fn)
+export function effect(fn, option) {
+  let scheduler = null
+  if (option && option.scheduler) {
+    scheduler = option.scheduler
+  }
+  const _effect = new ReactiveEffect(fn, scheduler)
   _effect.run()
   // 允许执行 runner() 的时候执行 _effect.run
   const runner = _effect.run.bind(_effect)
@@ -87,7 +91,13 @@ export function trigger(target, type, key, value, oldValue) {
   // 避免由于引用同一个对象导致监听变化陷入死循环，因此拷贝一个出来遍历
   effects = [...effects]
   effects.forEach((effect) => {
-    if (effect !== activeEffect) effect.run()
+    if (effect !== activeEffect) {
+      if (effect.scheduler) {
+        effect.scheduler()
+      } else {
+        effect.run()
+      }
+    }
   })
 }
 

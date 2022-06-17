@@ -1,3 +1,4 @@
+// 暴露在全局的副作用，表示当前正在执行的 effect
 export let activeEffect = undefined
 
 class ReactiveEffect {
@@ -17,13 +18,11 @@ class ReactiveEffect {
     // 收集依赖
     try {
       this.parent = activeEffect
-
       activeEffect = this
-      this.active = true
+      cleanupEffect(this)
       return this.fn()
     } finally {
       activeEffect = this.parent
-      this.parent = null
     }
   }
 
@@ -35,7 +34,9 @@ export function effect(fn) {
   _effect.run()
 }
 
-const globalDepsMap = new WeakMap()
+// 全局的依赖
+// WeakMap { target: Map {key: Set(...effects) } }
+export const globalTargetDepsMap = new WeakMap()
 
 // 收集依赖
 export function track(target, type, key) {
@@ -46,10 +47,10 @@ export function track(target, type, key) {
   if (!activeEffect) return
 
   // 判断weakMap里面有无这个target相关联的 Map
-  let depsMap = globalDepsMap.get(target)
-  // 如果没有，则需要创建
+  let depsMap = globalTargetDepsMap.get(target)
+
   if (!depsMap) {
-    globalDepsMap.set(target, (depsMap = new Map()))
+    globalTargetDepsMap.set(target, (depsMap = new Map()))
   }
   // 判断这个Map里面有无相关的key对应的Set
   let dep = depsMap.get(key)
@@ -60,9 +61,33 @@ export function track(target, type, key) {
 
   const shouldTrack = dep.has(activeEffect)
   if (!shouldTrack) {
-    dep.add(shouldTrack)
-    debugger
+    dep.add(activeEffect)
     // 让effect记住对应的依赖，方便后续清理
     activeEffect.deps.push(dep)
   }
+}
+
+export function trigger(target, type, key, value, oldValue) {
+  const depsMap = globalTargetDepsMap.get(target)
+  if (!depsMap) return
+
+  let effects = depsMap.get(key)
+
+  if (!effects) return
+
+  effects = [...effects]
+
+  effects.forEach((effect) => {
+    if (effect !== activeEffect) effect.run()
+  })
+}
+
+export function cleanupEffect(effect) {
+  const { deps } = effect
+
+  for (let i = 0; i < deps.length; i++) {
+    deps[i].delete(effect)
+  }
+
+  effect.deps.length = 0
 }

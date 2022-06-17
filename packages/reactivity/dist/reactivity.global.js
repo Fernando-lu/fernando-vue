@@ -45,11 +45,10 @@ var VueReactivity = (() => {
       try {
         this.parent = activeEffect;
         activeEffect = this;
-        this.active = true;
+        cleanupEffect(this);
         return this.fn();
       } finally {
         activeEffect = this.parent;
-        this.parent = null;
       }
     }
     stop() {
@@ -59,14 +58,13 @@ var VueReactivity = (() => {
     const _effect = new ReactiveEffect(fn);
     _effect.run();
   }
-  var globalDepsMap = /* @__PURE__ */ new WeakMap();
+  var globalTargetDepsMap = /* @__PURE__ */ new WeakMap();
   function track(target, type, key) {
-    debugger;
     if (!activeEffect)
       return;
-    let depsMap = globalDepsMap.get(target);
+    let depsMap = globalTargetDepsMap.get(target);
     if (!depsMap) {
-      globalDepsMap.set(target, depsMap = /* @__PURE__ */ new Map());
+      globalTargetDepsMap.set(target, depsMap = /* @__PURE__ */ new Map());
     }
     let dep = depsMap.get(key);
     if (!dep) {
@@ -74,10 +72,29 @@ var VueReactivity = (() => {
     }
     const shouldTrack = dep.has(activeEffect);
     if (!shouldTrack) {
-      dep.add(shouldTrack);
-      debugger;
+      dep.add(activeEffect);
       activeEffect.deps.push(dep);
     }
+  }
+  function trigger(target, type, key, value, oldValue) {
+    const depsMap = globalTargetDepsMap.get(target);
+    if (!depsMap)
+      return;
+    let effects = depsMap.get(key);
+    if (!effects)
+      return;
+    effects = [...effects];
+    effects.forEach((effect2) => {
+      if (effect2 !== activeEffect)
+        effect2.run();
+    });
+  }
+  function cleanupEffect(effect2) {
+    const { deps } = effect2;
+    for (let i = 0; i < deps.length; i++) {
+      deps[i].delete(effect2);
+    }
+    effect2.deps.length = 0;
   }
 
   // packages/reactivity/src/basicHandler.ts
@@ -90,7 +107,12 @@ var VueReactivity = (() => {
       return Reflect.get(target, key, receiver);
     },
     set(target, key, value, receiver) {
-      return Reflect.set(target, key, value, receiver);
+      const oldValue = target[key];
+      const result = Reflect.set(target, key, value, receiver);
+      if (oldValue !== value) {
+        trigger(target, "set", key, value, oldValue);
+      }
+      return result;
     }
   };
 

@@ -9,14 +9,15 @@
 </head>
 
 <body>
-
+  <div>
+    lucy今年<span id="app">hhhh</span>岁
+  </div>
 </body>
 <script src="./reactivity.global.js"></script>
 
 <script>
   const { reactive, effect } = VueReactivity
 
-  console.log(effect)
   const person = {
     name: 'Lucy',
     gender: 'Female',
@@ -24,11 +25,16 @@
   }
   const state = reactive(person)
   effect(() => {
-    const a = state.name
-    effect(() => {
-      console.log(state.age)
-    })
+    console.log('render1')
+    app.innerHTML = state.name
   })
+
+  setTimeout(() => {
+    setTimeout(() => {
+      console.log('修改名字，原则上不更新')
+      state.name = 'Lucy'
+    }, 1000)
+  }, 1000)
 </script>
 
 </html>

@@ -20,6 +20,7 @@ var VueReactivity = (() => {
   // packages/reactivity/src/index.ts
   var src_exports = {};
   __export(src_exports, {
+    computed: () => computed,
     effect: () => effect,
     reactive: () => reactive
   });
@@ -27,6 +28,9 @@ var VueReactivity = (() => {
   // packages/shared/src/index.ts
   function isObject(o) {
     return typeof o === "object" && o !== null;
+  }
+  function isFunction(o) {
+    return typeof o === "function";
   }
 
   // packages/reactivity/src/effect.ts
@@ -82,11 +86,7 @@ var VueReactivity = (() => {
     if (!dep) {
       depsMap.set(key, dep = /* @__PURE__ */ new Set());
     }
-    const shouldTrack = dep.has(activeEffect);
-    if (!shouldTrack) {
-      dep.add(activeEffect);
-      activeEffect.deps.push(dep);
-    }
+    trackEffects(dep);
   }
   function trigger(target, type, key, value, oldValue) {
     const depsMap = globalTargetDepsMap.get(target);
@@ -95,6 +95,18 @@ var VueReactivity = (() => {
     let effects = depsMap.get(key);
     if (!effects)
       return;
+    triggerEffects(effects);
+  }
+  function trackEffects(dep) {
+    if (activeEffect) {
+      const shouldTrack = dep.has(activeEffect);
+      if (!shouldTrack) {
+        dep.add(activeEffect);
+        activeEffect.deps.push(dep);
+      }
+    }
+  }
+  function triggerEffects(effects) {
     effects = [...effects];
     effects.forEach((effect2) => {
       if (effect2 !== activeEffect) {
@@ -153,6 +165,48 @@ var VueReactivity = (() => {
     reactiveMap.set(target, proxy);
     return proxy;
   }
+
+  // packages/reactivity/src/computed.ts
+  function computed(getterOrOptions) {
+    let getter, setter;
+    if (isFunction(getterOrOptions)) {
+      getter = getterOrOptions;
+      setter = () => {
+        console.error("no setter");
+      };
+    } else {
+      getter = getterOrOptions.get;
+      setter = getterOrOptions.set;
+    }
+    return new ComputedRefImplement(getter, setter);
+  }
+  var ComputedRefImplement = class {
+    constructor(getter, setter) {
+      this.getter = getter;
+      this.setter = setter;
+      this._dirty = true;
+      this.__v_isReadonly = true;
+      this.__v_isRef = true;
+      this.dep = /* @__PURE__ */ new Set();
+      this.effect = new ReactiveEffect(getter, () => {
+        if (this._dirty)
+          return;
+        this._dirty = true;
+        triggerEffects(this.dep);
+      });
+    }
+    get value() {
+      trackEffects(this.dep);
+      if (this._dirty) {
+        this._dirty = false;
+        this._value = this.effect.run();
+      }
+      return this._value;
+    }
+    set value(newVal) {
+      this.setter(newVal);
+    }
+  };
   return __toCommonJS(src_exports);
 })();
 //# sourceMappingURL=reactivity.global.js.map

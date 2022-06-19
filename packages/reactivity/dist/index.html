@@ -9,54 +9,53 @@
 </head>
 
 <body>
-  <div>
-    lucy今年<span id="app">hhhh</span>岁
+  <div id="app">
+    初始值
   </div>
 </body>
 <script src="./reactivity.global.js"></script>
 
 <script>
-  const { reactive, effect } = VueReactivity
-  let waiting = false
+  const { reactive, effect, computed } = VueReactivity
+
   const person = {
     name: 'Lucy',
     gender: 'Female',
     age: 16,
   }
+
   const state = reactive(person)
-  const runner = effect(
-    () => {
-      console.log('render')
-      app.innerHTML = state.age
-    },
-    {
-      scheduler() {
-        if (!waiting) {
-          waiting = true
-          console.log('自定义调度规则')
-          setTimeout(() => {
-            runner()
-            waiting = false
-          }, 1000)
-        }
-      }
-    }
-  )
+  const description = computed(() => {
+    return `my name is ${state.name}, I'm ${state.age} years old. I'm a ${state.gender}`
+  })
 
+  effect(() => {
+    app.innerHTML = description.value
+  })
+
+  setTimeout(() => {
+    state.name = 'Lily'
+    console.log(state)
+  }, 1000)
+
+
+
+  // 自定义调度scheduler方法测试demo
+  // state.age = 100
+  // state.age = 101
+  // state.age = 102
+  // state.age = 103
+  // state.age = 104
+
+
+  // 允许手动执行stop跟run的调用测试demo
   // runner.effect.stop()
-
   // setTimeout(() => {
   //   state.age = 1000
   //   setTimeout(() => {
   //     runner()
   //   }, 1000)
   // }, 1000)
-
-  state.age = 100
-  state.age = 101
-  state.age = 102
-  state.age = 103
-  state.age = 104
 
 
 </script>

@@ -72,9 +72,8 @@ export function track(target, type, key) {
   if (!dep) {
     depsMap.set(key, (dep = new Set()))
   }
-
-  trackEffects(dep)
   
+  trackEffects(dep)
 }
 
 export function trigger(target, type, key, value, oldValue) {
@@ -84,7 +83,6 @@ export function trigger(target, type, key, value, oldValue) {
   let effects = depsMap.get(key)
 
   if (!effects) return
-  // 避免由于引用同一个对象导致监听变化陷入死循环，因此拷贝一个出来遍历
   triggerEffects(effects)
 }
 
@@ -100,6 +98,7 @@ export function trackEffects(dep) {
 }
 
 export function triggerEffects(effects) {
+  // 避免由于引用同一个对象导致监听变化陷入死循环，因此拷贝一个出来遍历
   effects = [...effects]
   effects.forEach((effect) => {
     if (effect !== activeEffect) {

@@ -3,6 +3,10 @@ import { mutableHandlers, ReactiveFlags } from './basicHandler'
 
 const reactiveMap = new WeakMap()
 
+export function isReactive(value) {
+  return !!(value && value[ReactiveFlags.IS_REACTIVE])
+}
+
 export function reactive(target) {
   // reactive只能接收对象类型
   if (!isObject(target)) return

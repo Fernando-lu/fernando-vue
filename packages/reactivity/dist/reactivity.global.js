@@ -22,7 +22,8 @@ var VueReactivity = (() => {
   __export(src_exports, {
     computed: () => computed,
     effect: () => effect,
-    reactive: () => reactive
+    reactive: () => reactive,
+    watch: () => watch
   });
 
   // packages/shared/src/index.ts
@@ -98,12 +99,12 @@ var VueReactivity = (() => {
     triggerEffects(effects);
   }
   function trackEffects(dep) {
-    if (activeEffect) {
-      const shouldTrack = dep.has(activeEffect);
-      if (!shouldTrack) {
-        dep.add(activeEffect);
-        activeEffect.deps.push(dep);
-      }
+    if (!activeEffect)
+      return;
+    const shouldTrack = dep.has(activeEffect);
+    if (!shouldTrack) {
+      dep.add(activeEffect);
+      activeEffect.deps.push(dep);
     }
   }
   function triggerEffects(effects) {
@@ -151,6 +152,9 @@ var VueReactivity = (() => {
 
   // packages/reactivity/src/reactive.ts
   var reactiveMap = /* @__PURE__ */ new WeakMap();
+  function isReactive(value) {
+    return !!(value && value["__v_isReactive" /* IS_REACTIVE */]);
+  }
   function reactive(target) {
     if (!isObject(target))
       return;
@@ -207,6 +211,44 @@ var VueReactivity = (() => {
       this.setter(newVal);
     }
   };
+
+  // packages/reactivity/src/watch.ts
+  function traversal(value, set = /* @__PURE__ */ new Set()) {
+    if (!isObject(value))
+      return value;
+    if (set.has(value))
+      return value;
+    set.add(value);
+    for (const key in value) {
+      traversal(value[key], set);
+    }
+    return value;
+  }
+  function watch(source, excutor) {
+    let getter;
+    let oldValue;
+    if (isReactive(source)) {
+      getter = () => traversal(source);
+    } else if (isFunction(source)) {
+      getter = source;
+    } else {
+      return;
+    }
+    let cleanup;
+    function onCleanup(fn) {
+      cleanup = fn;
+    }
+    function scheduler() {
+      console.log("cleanup", cleanup);
+      if (cleanup)
+        cleanup();
+      const newValue = effect2.run();
+      excutor(oldValue, newValue, onCleanup);
+      oldValue = newValue;
+    }
+    const effect2 = new ReactiveEffect(getter, scheduler);
+    oldValue = effect2.run();
+  }
   return __toCommonJS(src_exports);
 })();
 //# sourceMappingURL=reactivity.global.js.map

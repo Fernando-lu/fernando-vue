@@ -87,13 +87,13 @@ export function trigger(target, type, key, value, oldValue) {
 }
 
 export function trackEffects(dep) {
-  if (activeEffect) {
-    const shouldTrack = dep.has(activeEffect)
-    if (!shouldTrack) {
-      dep.add(activeEffect)
-      // 让effect记住对应的依赖，方便后续清理
-      activeEffect.deps.push(dep)
-    }
+  if (!activeEffect) return
+
+  const shouldTrack = dep.has(activeEffect)
+  if (!shouldTrack) {
+    dep.add(activeEffect)
+    // 让effect记住对应的依赖，方便后续清理
+    activeEffect.deps.push(dep)
   }
 }
 
